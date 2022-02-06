@@ -1,43 +1,31 @@
-import subprocess
-import pathlib
-from typing import ByteString
+import io
+
+import pytest
+
+from main import main
 
 
-def run_module(input: ByteString, output: ByteString):
-    res = subprocess.run(
-        ["python", "main.py"],
-        input=input,
-        capture_output=True,
-        cwd=pathlib.Path(__file__).parent,
-        check=True,
-    )
-    assert output.decode("utf-8").strip() == res.stdout.decode("utf-8").strip()
+@pytest.mark.parametrize(
+    ["test_input", "expected"],
+    [
+        ("[]\n", "Success\n"),
+        ("{}[]\n", "Success\n"),
+        ("[()]\n", "Success\n"),
+        ("(())\n", "Success\n"),
+        ("{[]}()\n", "Success\n"),
+        ("{\n", "1\n"),
+        ("{[}\n", "3\n"),
+        ("foo(bar);\n", "Success\n"),
+        ("foo(bar[i);\n", "10\n"),
+        ("([](){([])})\n", "Success\n"),
+        ("()[]}\n", "5\n"),
+        ("{{[()]]\n", "7\n"),
+        ("{{{**[][][]\n", "3\n"),
+    ],
+)
+def test_main(monkeypatch, capsys, test_input, expected):
+    monkeypatch.setattr("sys.stdin", io.StringIO(test_input))
 
+    main()
 
-def test_1():
-    input = b"""([](){([])})
-"""
-    output = b"""Success
-"""
-    run_module(input, output)
-
-def test_2():
-    input = b"""()[]}
-"""
-    output = b"""5
-"""
-    run_module(input, output)
-
-def test_3():
-    input = b"""{{[()]]
-"""
-    output = b"""7
-"""
-    run_module(input, output)
-
-def test_4():
-    input = b"""{{{**[][][]
-"""
-    output = b"""3
-"""
-    run_module(input, output)
+    assert capsys.readouterr().out == expected
